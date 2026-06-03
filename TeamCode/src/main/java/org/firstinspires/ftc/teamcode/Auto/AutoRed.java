@@ -34,22 +34,6 @@ import org.firstinspires.ftc.teamcode.MecanumDrive;
  *   7. Park.
  *
  * GATE RULE (from your spec): gate must be CLOSED before intaking and OPEN before shooting.
- *
- * =========================================================================
- *  COORDINATE FRAME  -- standard Road Runner / FTC convention
- * =========================================================================
- *  Origin: field center.  +X toward the back wall you start nearest.
- *  +Y to the LEFT.  Heading 0 faces +X, CCW positive.  Units: INCHES
- *  (Road Runner works in inches -- note your TELEOP used mm; keep them separate).
- *  Field is 12 ft = 144 in, so each wall sits at +/- 72 in.
- *
- *  All poses below are STARTING ESTIMATES placed to match the field diagram with
- *  the robot starting in the RED area (upper-right of the manual figure). They are
- *  marked TODO where you must verify against your real robot/shot. The numbers are
- *  internally consistent and safe (nothing crosses the midline), but you WILL want
- *  to nudge SHOOT_POSE until your flywheels actually make the shot, and verify the
- *  intake poses against where the artifact sets sit on your field.
- * =========================================================================
  */
 @Autonomous(name = "Auto RED", group = "Auto")
 public class AutoRed extends LinearOpMode {
@@ -63,29 +47,30 @@ public class AutoRed extends LinearOpMode {
     private static double my(double y) { return IS_RED ? y : -y; }
     private static double mh(double headingRad) { return IS_RED ? headingRad : -headingRad; }
 
-    // --- Start pose: against the back wall in the RED alliance area (upper-right of figure).
-    // x near the +X wall (72 in), y on the red (left-of-figure-from-driver) side, facing the field (-X)
-    // TODO: measure your exact start. Robot back against the wall tile edge.
     private static final Pose2d START_POSE =
-            new Pose2d(48.0, my(48.0), Math.toRadians(my(180.0)));
+            new Pose2d(55.5, my(52.5), Math.toRadians(my(45.0)));
 
-    // --- Shooting spot: backed up toward the goal but NOT across the midline (x stays > 0).
-    // TODO: tune this until the shot actually goes in. This is the single most important pose.
     private static final Pose2d SHOOT_POSE =
-            new Pose2d(24.0, my(48.0), Math.toRadians(my(135.0)));
+            new Pose2d(25, my(25), Math.toRadians(my(39.0)));
 
-    // --- Artifact set 1 (closest row to start). Heading points the intake at the artifacts.
-    // TODO: verify against the artifact set positions in the manual figure for your alliance.
-    private static final Pose2d INTAKE1_POSE =
-            new Pose2d(24.0, my(24.0), Math.toRadians(my(-135.0)));
+    // --- Artifact row 1. Robot drives to START with intake off, switches intake on,
+    // drives through to END (sweeping up all 3 balls in the row), then turns intake off.
+    // Heading stays the same so the robot just translates along the row.
+    // TODO: tune both poses for your real field. Currently the row runs along -X from
+    // (36, 24) to (12, 24) -- adjust direction/length to match the actual artifact layout.
+    private static final Pose2d INTAKE1_START =
+            new Pose2d(12.0, my(24.0), Math.toRadians(my(180)));
+    private static final Pose2d INTAKE1_END =
+            new Pose2d(36.0, my(24.0), Math.toRadians(my(180)));
 
-    // --- Artifact set 2 (next row). TODO verify.
-    private static final Pose2d INTAKE2_POSE =
-            new Pose2d(24.0, my(0.0), Math.toRadians(my(-135.0)));
+    // --- Artifact row 2. Same pattern as row 1, different Y.
+    private static final Pose2d INTAKE2_START =
+            new Pose2d(12.0, my(0.0), Math.toRadians(my(180)));
+    private static final Pose2d INTAKE2_END =
+            new Pose2d(36.0, my(0.0), Math.toRadians(my(180)));
 
-    // --- Park: stay on your alliance side, out of the way. TODO confirm legal park zone.
     private static final Pose2d PARK_POSE =
-            new Pose2d(48.0, my(36.0), Math.toRadians(my(180.0)));
+            new Pose2d(48.0, my(30.0), Math.toRadians(my(90)));
 
     // ====================== HARDWARE ======================
     private DcMotor intake, shooter;
@@ -94,13 +79,13 @@ public class AutoRed extends LinearOpMode {
 
     // ====================== CONSTANTS (mirrored from Teleop.java) ======================
     private static final double TICKS_PER_REV = 28.0;
-    private static final double TARGET_RPM    = 5500.0;
+    private static final double TARGET_RPM    = 4800;
     private static final double TARGET_TPS    = (TARGET_RPM / 60.0) * TICKS_PER_REV;
-    private static final double READY_RPM     = 5225.0;
+    private static final double READY_RPM     = 4550.0;
     private static final double READY_TPS     = (READY_RPM / 60.0) * TICKS_PER_REV;
-
+    private static final double FLYWHEEL_MAX_RPM = 6000;
     private static final double INTAKE_POWER  = 1.0;
-    private static final double SHOOTER_POWER = 1.0;
+    private static final double SHOOTER_POWER = 0.5;
 
     private static final double SERVO_FULL_RANGE_DEG = 300.0;
 
@@ -108,16 +93,17 @@ public class AutoRed extends LinearOpMode {
     private static final double GATE_CLOSED_DEG = 45.0;
 
     private static final double HOOD_MIN_DEG = 0.0;
-    // Fixed hood angle for the auto shooting spot. Distance-based logic from teleop is
-    // overkill here since we shoot from one spot; just pick the angle that works there.
-    // TODO: set to whatever hood angle makes the SHOOT_POSE shot.
-    private static final double HOOD_SHOOT_DEG = 60.0;
+    private static final double HOOD_SHOOT_DEG = 0;
 
     // ====================== TIMINGS (seconds) ======================
     private static final double SPINUP_TIME   = 1.5;  // initial flywheel spin-up
     private static final double SHOOT_TIME    = 1.5;  // time to feed all preloads through
     private static final double SETTLE_TIME   = 0.3;  // pause after gate moves before shooting/intaking
-    private static final double INTAKE_TIME   = 1.5;  // time to suck in a set while driving onto it
+
+    private double rpmToPower(double rpm) {
+        double p = rpm / FLYWHEEL_MAX_RPM;
+        return Math.max(0.0, Math.min(1.0, p));
+    }
 
     @Override
     public void runOpMode() {
@@ -140,10 +126,11 @@ public class AutoRed extends LinearOpMode {
         flywheel1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         flywheel2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        flywheel1.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        flywheel2.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        flywheel1.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        flywheel2.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        // Open-loop power control (matches teleop). RUN_WITHOUT_ENCODER disables the
+        // built-in velocity PID so the two flywheel motors don't fight each other on
+        // a shared wheel. getVelocity() still works for telemetry/threshold reads.
+        flywheel1.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        flywheel2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         // Hood at a fixed shooting angle for auto.
         hood.setPosition(hoodDegToPos(HOOD_SHOOT_DEG));
@@ -157,14 +144,16 @@ public class AutoRed extends LinearOpMode {
         telemetry.addLine("RED auto initialized.");
         telemetry.addData("Start", poseStr(START_POSE));
         telemetry.addData("Shoot", poseStr(SHOOT_POSE));
+
         telemetry.update();
 
         waitForStart();
         if (isStopRequested()) return;
 
         // Kick the flywheels up immediately so they're ready by the time we arrive.
-        flywheel1.setVelocity(TARGET_TPS);
-        flywheel2.setVelocity(TARGET_TPS);
+        double startPower = rpmToPower(TARGET_RPM);
+        flywheel1.setPower(startPower);
+        flywheel2.setPower(startPower);
 
         // ============================================================
         //  BUILD THE FULL AUTONOMOUS AS ONE RR ACTION
@@ -174,7 +163,6 @@ public class AutoRed extends LinearOpMode {
                 drive.actionBuilder(START_POSE)
                         .strafeToLinearHeading(SHOOT_POSE.position, SHOOT_POSE.heading)
                         .build(),
-                waitForFlywheel(),               // make sure we're actually at speed
                 new SleepAction(SETTLE_TIME),
 
                 // ---- 2) Shoot preloads (gate OPEN) ----
@@ -183,33 +171,40 @@ public class AutoRed extends LinearOpMode {
                 shoot(SHOOT_TIME),
                 closeGate(),                     // close before driving to intake
 
-                // ---- 3) Go to set 1, intake (gate CLOSED) ----
+                // ---- 3) Sweep row 1: drive to START with intake off, turn intake on,
+                //        drive through to END picking up all 3 balls, then turn intake off.
                 drive.actionBuilder(SHOOT_POSE)
-                        .strafeToLinearHeading(INTAKE1_POSE.position, INTAKE1_POSE.heading)
+                        .strafeToLinearHeading(INTAKE1_START.position, INTAKE1_START.heading)
                         .build(),
-                intakeSet(INTAKE_TIME),
+                intakeOn(),
+                drive.actionBuilder(INTAKE1_START)
+                        .strafeToLinearHeading(INTAKE1_END.position, INTAKE1_END.heading)
+                        .build(),
+                intakeOff(),
 
                 // ---- 4) Return to shoot, shoot ----
-                drive.actionBuilder(INTAKE1_POSE)
+                drive.actionBuilder(INTAKE1_END)
                         .strafeToLinearHeading(SHOOT_POSE.position, SHOOT_POSE.heading)
                         .build(),
-                waitForFlywheel(),
                 openGate(),
                 new SleepAction(SETTLE_TIME),
                 shoot(SHOOT_TIME),
                 closeGate(),
 
-                // ---- 5) Go to set 2, intake ----
+                // ---- 5) Sweep row 2 same pattern ----
                 drive.actionBuilder(SHOOT_POSE)
-                        .strafeToLinearHeading(INTAKE2_POSE.position, INTAKE2_POSE.heading)
+                        .strafeToLinearHeading(INTAKE2_START.position, INTAKE2_START.heading)
                         .build(),
-                intakeSet(INTAKE_TIME),
+                intakeOn(),
+                drive.actionBuilder(INTAKE2_START)
+                        .strafeToLinearHeading(INTAKE2_END.position, INTAKE2_END.heading)
+                        .build(),
+                intakeOff(),
 
                 // ---- 6) Return to shoot, shoot ----
-                drive.actionBuilder(INTAKE2_POSE)
+                drive.actionBuilder(INTAKE2_END)
                         .strafeToLinearHeading(SHOOT_POSE.position, SHOOT_POSE.heading)
                         .build(),
-                waitForFlywheel(),
                 openGate(),
                 new SleepAction(SETTLE_TIME),
                 shoot(SHOOT_TIME),
@@ -233,10 +228,11 @@ public class AutoRed extends LinearOpMode {
 
     /** Spin shooter feed + keep flywheels at speed for `seconds`, then stop the feed. */
     private Action shoot(double seconds) {
+        final double pwr = rpmToPower(TARGET_RPM);
         return new TimedAction(seconds,
                 () -> {
-                    flywheel1.setVelocity(TARGET_TPS);
-                    flywheel2.setVelocity(TARGET_TPS);
+                    flywheel1.setPower(pwr);
+                    flywheel2.setPower(pwr);
                     shooter.setPower(SHOOTER_POWER);
                     // optional: a touch of intake to keep balls fed up to the shooter
                     intake.setPower(INTAKE_POWER);
@@ -247,25 +243,14 @@ public class AutoRed extends LinearOpMode {
                 });
     }
 
-    /** Run intake in for `seconds` (gate must already be CLOSED). */
-    private Action intakeSet(double seconds) {
-        return new TimedAction(seconds,
-                () -> intake.setPower(INTAKE_POWER),
-                () -> intake.setPower(0.0));
+    /** Turn intake on (gate must already be CLOSED). Used when entering an artifact row. */
+    private Action intakeOn() {
+        return instant(() -> intake.setPower(INTAKE_POWER));
     }
 
-    /** Block until flywheels reach the ready threshold (with a timeout safety). */
-    private Action waitForFlywheel() {
-        return new Action() {
-            double t0 = -1;
-            @Override public boolean run(@NonNull TelemetryPacket p) {
-                if (t0 < 0) t0 = now();
-                double avgTps = (Math.abs(flywheel1.getVelocity()) + Math.abs(flywheel2.getVelocity())) / 2.0;
-                boolean ready = avgTps >= READY_TPS;
-                boolean timedOut = (now() - t0) > 3.0; // never hang forever
-                return !(ready || timedOut); // keep running while NOT ready and NOT timed out
-            }
-        };
+    /** Turn intake off. Used when exiting an artifact row. */
+    private Action intakeOff() {
+        return instant(() -> intake.setPower(0.0));
     }
 
     private Action openGate() {
@@ -342,8 +327,8 @@ public class AutoRed extends LinearOpMode {
     private void stopAll() {
         intake.setPower(0);
         shooter.setPower(0);
-        flywheel1.setVelocity(0);
-        flywheel2.setVelocity(0);
+        flywheel1.setPower(0);
+        flywheel2.setPower(0);
     }
 
     private static String poseStr(Pose2d p) {
