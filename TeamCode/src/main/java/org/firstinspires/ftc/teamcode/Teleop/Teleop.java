@@ -88,7 +88,7 @@ public class Teleop extends LinearOpMode {
     // If the robot SPINS CONTINUOUSLY instead of settling on the goal (error swings from
     // -160 to +160 and turn power stays pegged), the heading rotation convention is
     // opposite from what the math expects. Set this to -1 to flip the sign. +1 = normal.
-    private static final double AIM_ERROR_SIGN = -1.0;
+    private static final double AIM_ERROR_SIGN = 1.0;
 
     // Odometry pod offsets from the robot's center of rotation, in mm.
     // X pod (forward pod) is 1 in LEFT of center  -> +25.4 mm
