@@ -52,8 +52,8 @@ public class Teleop extends LinearOpMode {
     // of the field, not the robot's start. These coords stay constant across matches;
     // only START_X/Y/HEADING change based on where the robot is placed each round.
     // Red goal measured at (52.05, -53.1) inches from field center -> mm:
-    private static final double RED_GOAL_X_MM  = 1322.0;  // 52.05 in
-    private static final double RED_GOAL_Y_MM  = -1349.0; // -53.1 in
+    private static final double RED_GOAL_X_MM  = 1572.0;  // 52.05 in
+    private static final double RED_GOAL_Y_MM  = 1363.0; // -53.1 in
     private static final double BLUE_GOAL_X_MM = 0.0;     // TODO: measure blue goal
     private static final double BLUE_GOAL_Y_MM = 0.0;     // TODO: measure blue goal
 
@@ -61,9 +61,9 @@ public class Teleop extends LinearOpMode {
     // the robot is physically placed at before INIT. Changes per match starting tile.
     // After INIT, Pinpoint reports robot pose in this same field-center frame.
     // Measured from LocalizationTest at start position: (62.8262, -35.93, 0) inches.
-    private static final double START_X_MM       = 1596.0; // 62.8262 in
-    private static final double START_Y_MM       = -913.0; // -35.93 in
-    private static final double START_HEADING_DEG = 0.0;
+    private static final double START_X_MM       = 1706.0;
+    private static final double START_Y_MM       = 1035.0;
+    private static final double START_HEADING_DEG = 90.0;
 
     // Active goal, chosen by alliance. Used by both auto-aim and hood distance.
     private static final double GOAL_X_MM = ALLIANCE_IS_RED ? RED_GOAL_X_MM : BLUE_GOAL_X_MM;
@@ -74,21 +74,27 @@ public class Teleop extends LinearOpMode {
     // approach so the robot doesn't overshoot and oscillate. AIM_DEADBAND_DEG is the
     // "close enough" threshold where we stop turning. Tune KP up until it turns briskly,
     // then add KD until oscillation stops.
-    private static final double AIM_KP           = 0.002; // power per degree of error
+    private static final double AIM_KP           = 0.08; // power per degree of error
     private static final double AIM_KD           = 0.010; // power per (deg/sec) of error rate
     private static final double AIM_MAX_TURN     = 0.3;   // cap on auto-turn power
-    private static final double AIM_DEADBAND_DEG = 4.0;   // "close enough" threshold
+    private static final double AIM_DEADBAND_DEG = 3.0;   // "close enough" threshold
 
     // Calibration: if the robot consistently aims off by some angle (e.g. 45 deg left of
     // the goal), set this to that offset and the aim controller will compensate. Positive
     // values rotate the target CCW (left), negative values CW (right). Adjust by trial:
     // if aiming 45 deg left of goal, set this to -45 to push the target 45 deg right.
-    private static final double AIM_HEADING_OFFSET_DEG = 0.0;
+    private static final double AIM_HEADING_OFFSET_DEG = 310;
 
     // If the robot SPINS CONTINUOUSLY instead of settling on the goal (error swings from
     // -160 to +160 and turn power stays pegged), the heading rotation convention is
     // opposite from what the math expects. Set this to -1 to flip the sign. +1 = normal.
-    private static final double AIM_ERROR_SIGN = 1.0;
+    private static final double AIM_ERROR_SIGN = -1.0;
+
+    // TEST MODE: when true, auto-aim ignores the goal and drives the robot to a fixed
+    // compass heading (AIM_TEST_TARGET_DEG). Useful for verifying the controller turns
+    // the right direction and stops at the right place. SET BACK TO false for real aim.
+    private static final boolean AIM_TEST_FIXED_HEADING = false;
+    private static final double  AIM_TEST_TARGET_DEG    = 345.0;
 
     // Odometry pod offsets from the robot's center of rotation, in mm.
     // X pod (forward pod) is 1 in LEFT of center  -> +25.4 mm
@@ -112,8 +118,8 @@ public class Teleop extends LinearOpMode {
     // TICKS_PER_REV is kept only for converting the encoder's ticks/sec back to RPM
     // for telemetry; the flywheels run on raw power, not velocity.
     private static final double TICKS_PER_REV = 28.0;
-    private static final double TARGET_RPM    = 5000.0;
-    private static final double READY_RPM     = 4750.0; // "ready to shoot" threshold (~95%)
+    private static final double TARGET_RPM    = 4800.0;
+    private static final double READY_RPM     = 4550.0; // "ready to shoot" threshold (~95%)
 
     // ---- Flywheel manual adjust (X button) ----
     // Press X to toggle MANUAL flywheel-speed mode. While ON, dpad up/down changes the
@@ -217,10 +223,14 @@ public class Teleop extends LinearOpMode {
         // Use the pod type you actually have. Options include goBILDA_SWINGARM_POD
         // and goBILDA_4_BAR_POD. For a non-goBILDA pod use setEncoderResolution(ticksPerMM).
         pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
-        pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.FORWARD,
-                GoBildaPinpointDriver.EncoderDirection.FORWARD);
+        pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.REVERSED,
+                GoBildaPinpointDriver.EncoderDirection.REVERSED);
         // Reset position + recalibrate IMU. Keep the robot STILL during init.
         pinpoint.resetPosAndIMU();
+        
+        // Wait for calibration to finish so the setPosition call isn't ignored.
+        sleep(300);
+
         // Tell the Pinpoint the robot's true pose in the FIELD-CENTER frame, so all
         // subsequent getPosition() reads are in field-center coordinates.
         // (0,0) at field center; goal coords are then constant across matches.
@@ -465,7 +475,9 @@ public class Teleop extends LinearOpMode {
             telemetry.addData("Auto-aim", aimStatus);
             // DIAGNOSTIC: always compute target and heading for telemetry, even when
             // auto-aim is off, so you can see what the math sees without engaging.
-            double diagTargetDeg = Math.toDegrees(Math.atan2(GOAL_Y_MM - robotY, GOAL_X_MM - robotX))
+            double diagTargetDeg = AIM_TEST_FIXED_HEADING
+                    ? AIM_TEST_TARGET_DEG
+                    : Math.toDegrees(Math.atan2(GOAL_Y_MM - robotY, GOAL_X_MM - robotX))
                     + AIM_HEADING_OFFSET_DEG;
             double diagErr = AIM_ERROR_SIGN * wrapDeg(diagTargetDeg - robotHeading);
             telemetry.addData("Aim err (deg)", "%.1f", autoAim ? headingErrDeg : diagErr);
@@ -527,9 +539,15 @@ public class Teleop extends LinearOpMode {
         double ry = pose.getY(DistanceUnit.MM);
         double headingDeg = pose.getHeading(AngleUnit.DEGREES);
 
-        double dx = GOAL_X_MM - rx;
-        double dy = GOAL_Y_MM - ry;
-        double targetDeg = Math.toDegrees(Math.atan2(dy, dx)) + AIM_HEADING_OFFSET_DEG;
+        double targetDeg;
+        if (AIM_TEST_FIXED_HEADING) {
+            // Test mode: ignore goal, drive to a fixed compass heading.
+            targetDeg = AIM_TEST_TARGET_DEG;
+        } else {
+            double dx = GOAL_X_MM - rx;
+            double dy = GOAL_Y_MM - ry;
+            targetDeg = Math.toDegrees(Math.atan2(dy, dx)) + AIM_HEADING_OFFSET_DEG;
+        }
 
         // Save for telemetry
         lastTargetDeg = targetDeg;
