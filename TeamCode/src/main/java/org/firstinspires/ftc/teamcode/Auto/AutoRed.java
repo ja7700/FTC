@@ -51,7 +51,7 @@ public class AutoRed extends LinearOpMode {
             new Pose2d(55.5, my(52.5), Math.toRadians(my(45.0)));
 
     private static final Pose2d SHOOT_POSE =
-            new Pose2d(25, my(25), Math.toRadians(my(39.0)));
+            new Pose2d(23, my(23), Math.toRadians(my(45.0)));
 
     // --- Artifact row 1. Robot drives to START with intake off, switches intake on,
     // drives through to END (sweeping up all 3 balls in the row), then turns intake off.
@@ -59,15 +59,15 @@ public class AutoRed extends LinearOpMode {
     // TODO: tune both poses for your real field. Currently the row runs along -X from
     // (36, 24) to (12, 24) -- adjust direction/length to match the actual artifact layout.
     private static final Pose2d INTAKE1_START =
-            new Pose2d(12.0, my(24.0), Math.toRadians(my(180)));
+            new Pose2d(12.0, my(12.0), Math.toRadians(my(180)));
     private static final Pose2d INTAKE1_END =
-            new Pose2d(36.0, my(24.0), Math.toRadians(my(180)));
+            new Pose2d(48.0, my(12.0), Math.toRadians(my(180)));
 
     // --- Artifact row 2. Same pattern as row 1, different Y.
     private static final Pose2d INTAKE2_START =
-            new Pose2d(12.0, my(0.0), Math.toRadians(my(180)));
+            new Pose2d(12.0, my(-12.0), Math.toRadians(my(180)));
     private static final Pose2d INTAKE2_END =
-            new Pose2d(36.0, my(0.0), Math.toRadians(my(180)));
+            new Pose2d(58.0, my(-12.0), Math.toRadians(my(180)));
 
     private static final Pose2d PARK_POSE =
             new Pose2d(48.0, my(30.0), Math.toRadians(my(90)));
@@ -79,9 +79,9 @@ public class AutoRed extends LinearOpMode {
 
     // ====================== CONSTANTS (mirrored from Teleop.java) ======================
     private static final double TICKS_PER_REV = 28.0;
-    private static final double TARGET_RPM    = 4800;
+    private static final double TARGET_RPM    = 4400;
     private static final double TARGET_TPS    = (TARGET_RPM / 60.0) * TICKS_PER_REV;
-    private static final double READY_RPM     = 4550.0;
+    private static final double READY_RPM     = 4350.0;
     private static final double READY_TPS     = (READY_RPM / 60.0) * TICKS_PER_REV;
     private static final double FLYWHEEL_MAX_RPM = 6000;
     private static final double INTAKE_POWER  = 1.0;
@@ -93,10 +93,9 @@ public class AutoRed extends LinearOpMode {
     private static final double GATE_CLOSED_DEG = 45.0;
 
     private static final double HOOD_MIN_DEG = 0.0;
-    private static final double HOOD_SHOOT_DEG = 0;
+    private static final double HOOD_SHOOT_DEG = 60;
 
     // ====================== TIMINGS (seconds) ======================
-    private static final double SPINUP_TIME   = 1.5;  // initial flywheel spin-up
     private static final double SHOOT_TIME    = 1.5;  // time to feed all preloads through
     private static final double SETTLE_TIME   = 0.3;  // pause after gate moves before shooting/intaking
 
