@@ -52,8 +52,8 @@ public class Teleop extends LinearOpMode {
     // of the field, not the robot's start. These coords stay constant across matches;
     // only START_X/Y/HEADING change based on where the robot is placed each round.
     // Red goal measured at (52.05, -53.1) inches from field center -> mm:
-    private static final double RED_GOAL_X_MM  = 1572.0;  // 52.05 in
-    private static final double RED_GOAL_Y_MM  = 1363.0; // -53.1 in
+    private static final double RED_GOAL_X_MM  = 1283.0;  // 52.05 in
+    private static final double RED_GOAL_Y_MM  = 1366.0; // -53.1 in
     private static final double BLUE_GOAL_X_MM = 0.0;     // TODO: measure blue goal
     private static final double BLUE_GOAL_Y_MM = 0.0;     // TODO: measure blue goal
 
@@ -61,8 +61,8 @@ public class Teleop extends LinearOpMode {
     // the robot is physically placed at before INIT. Changes per match starting tile.
     // After INIT, Pinpoint reports robot pose in this same field-center frame.
     // Measured from LocalizationTest at start position: (62.8262, -35.93, 0) inches.
-    private static final double START_X_MM       = 1706.0;
-    private static final double START_Y_MM       = 1035.0;
+    private static final double START_X_MM       = 891.0;
+    private static final double START_Y_MM       = 1641.0;
     private static final double START_HEADING_DEG = 90.0;
 
     // Active goal, chosen by alliance. Used by both auto-aim and hood distance.
@@ -83,7 +83,7 @@ public class Teleop extends LinearOpMode {
     // the goal), set this to that offset and the aim controller will compensate. Positive
     // values rotate the target CCW (left), negative values CW (right). Adjust by trial:
     // if aiming 45 deg left of goal, set this to -45 to push the target 45 deg right.
-    private static final double AIM_HEADING_OFFSET_DEG = 310;
+    private static final double AIM_HEADING_OFFSET_DEG = 0;
 
     // If the robot SPINS CONTINUOUSLY instead of settling on the goal (error swings from
     // -160 to +160 and turn power stays pegged), the heading rotation convention is
@@ -224,7 +224,7 @@ public class Teleop extends LinearOpMode {
         // and goBILDA_4_BAR_POD. For a non-goBILDA pod use setEncoderResolution(ticksPerMM).
         pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
         pinpoint.setEncoderDirections(GoBildaPinpointDriver.EncoderDirection.REVERSED,
-                GoBildaPinpointDriver.EncoderDirection.REVERSED);
+                GoBildaPinpointDriver.EncoderDirection.FORWARD);
         // Reset position + recalibrate IMU. Keep the robot STILL during init.
         pinpoint.resetPosAndIMU();
         
@@ -305,7 +305,6 @@ public class Teleop extends LinearOpMode {
             // field-center coordinates -- so the robot must actually be at the start spot.
             boolean dpadLeftNow = gamepad1.dpad_left;
             if (dpadLeftNow && !prevDpadLeft) {
-                pinpoint.resetPosAndIMU();
                 pinpoint.setPosition(new Pose2D(DistanceUnit.MM, START_X_MM, START_Y_MM,
                         AngleUnit.DEGREES, START_HEADING_DEG));
             }
